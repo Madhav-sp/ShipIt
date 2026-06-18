@@ -1,9 +1,15 @@
 const express = require("express");
 const cors = require("cors");
 
-const deploy = require(
-  "../../worker/src/deploy"
+const deploymentQueue = require(
+  "../../worker/src/queue"
 );
+
+const redis = require(
+  "../../worker/src/redis"
+);
+
+const { v4: uuidv4 } = require("uuid");
 
 const app = express();
 
@@ -28,12 +34,25 @@ app.post("/deploy", async (req, res) => {
       });
     }
 
-    const projectId =
-      await deploy(repoUrl);
+    const projectId = uuidv4();
+
+    await redis.set(
+      `status:${projectId}`,
+      "QUEUED"
+    );
+
+    await deploymentQueue.add(
+      "deploy",
+      {
+        repoUrl,
+        projectId
+      }
+    );
 
     return res.json({
       success: true,
-      projectId
+      projectId,
+      status: "QUEUED"
     });
 
   } catch (err) {
@@ -45,6 +64,33 @@ app.post("/deploy", async (req, res) => {
 
   }
 });
+
+app.get(
+  "/status/:projectId",
+  async (req, res) => {
+
+    const { projectId } =
+      req.params;
+
+    const status =
+      await redis.get(
+        `status:${projectId}`
+      );
+
+    if (!status) {
+      return res.status(404).json({
+        message:
+          "Deployment not found"
+      });
+    }
+
+    return res.json({
+      projectId,
+      status
+    });
+
+  }
+);
 
 app.listen(3000, () => {
   console.log(

@@ -2,9 +2,8 @@ const { execSync } = require("child_process");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 
-async function deploy(repoUrl) {
+async function deploy(repoUrl, projectId) {
   try {
-    const projectId = uuidv4();
 
     console.log("================================");
     console.log("Starting Deployment");

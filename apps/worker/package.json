@@ -10,6 +10,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bullmq": "^5.79.0",
+    "ioredis": "^5.11.1",
     "simple-git": "^3.36.0",
     "uuid": "^14.0.0"
   }

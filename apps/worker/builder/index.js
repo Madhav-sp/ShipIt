@@ -9,7 +9,7 @@ async function main() {
     const repoUrl = process.env.REPO_URL;
 
     // Generate unique deployment/project id
-    const projectId = Date.now().toString();
+    const projectId =process.env.PROJECT_ID;
 
     console.log("================================");
     console.log("Project ID:", projectId);
