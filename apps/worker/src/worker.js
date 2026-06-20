@@ -1,6 +1,8 @@
 const { Worker } = require("bullmq");
 const deploy = require("./deploy");
 const redis = require("./redis");
+const path = require("path");
+const uploadFolder = require("./uploader");
 
 const worker = new Worker(
   "deployment-queue",
@@ -25,19 +27,40 @@ const worker = new Worker(
       );
 
       await deploy(
-        repoUrl,
-        projectId
-      );
+  repoUrl,
+  projectId
+);
 
-      console.log(
-        "Build Finished:",
-        projectId
-      );
+console.log(
+  "Build Finished:",
+  projectId
+);
 
-      await redis.set(
-        `status:${projectId}`,
-        "SUCCESS"
-      );
+const outputPath =
+  path.join(
+    __dirname,
+    "../output",
+    projectId
+  );
+
+console.log(
+  "Uploading To S3..."
+);
+
+await uploadFolder(
+  outputPath,
+  outputPath,
+  projectId
+);
+
+console.log(
+  "S3 Upload Complete"
+);
+
+await redis.set(
+  `status:${projectId}`,
+  "SUCCESS"
+);
 
     } catch (err) {
 
