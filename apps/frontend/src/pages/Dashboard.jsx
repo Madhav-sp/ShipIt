@@ -1,48 +1,104 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
+
 import Navbar from "../components/Navbar";
 import DeployForm from "../components/DeployForm";
 import DeploymentTable from "../components/DeploymentTable";
-import { useEffect } from "react";
-import axios from "axios";
-function Dashboard() {
 
+function Dashboard() {
   const [deployments, setDeployments] =
     useState([]);
-    useEffect(() => {
 
-  const interval =
-    setInterval(async () => {
-
-      const updated =
-        await Promise.all(
-
-          deployments.map(
-            async (
-              deployment
-            ) => {
-
-              const res =
-                await axios.get(
-                  `http://localhost:3000/status/${deployment.projectId}`
-                );
-
-              return {
-                ...deployment,
-                status:
-                  res.data.status,
-              };
-            }
-          )
+  // Load deployments from PostgreSQL
+  useEffect(() => {
+    const fetchDeployments = async () => {
+      try {
+        const res = await axios.get(
+          "http://localhost:3000/deployments"
         );
 
-      setDeployments(updated);
+        const formatted =
+          res.data.map(
+            (deployment) => ({
+              projectId:
+                deployment.id,
+              repoUrl:
+                deployment.repoUrl,
+              status:
+                deployment.status,
+              deploymentUrl:
+                deployment.deploymentUrl,
+              createdAt:
+                deployment.createdAt,
+            })
+          );
 
-    }, 2000);
+        setDeployments(
+          formatted
+        );
 
-  return () =>
-    clearInterval(interval);
+      } catch (err) {
+        console.error(err);
+      }
+    };
 
-}, [deployments]);
+    fetchDeployments();
+  }, []);
+
+  // Poll deployment status
+  useEffect(() => {
+
+    const interval =
+      setInterval(
+        async () => {
+
+          try {
+
+            const updated =
+              await Promise.all(
+
+                deployments.map(
+                  async (
+                    deployment
+                  ) => {
+
+                    const res =
+                      await axios.get(
+                        `http://localhost:3000/status/${deployment.projectId}`
+                      );
+
+                    return {
+                      ...deployment,
+                      status:
+                        res.data.status,
+                      deploymentUrl:
+                        res.data.deploymentUrl,
+                    };
+                  }
+                )
+              );
+
+            setDeployments(
+              updated
+            );
+
+          } catch (err) {
+            console.error(
+              err
+            );
+          }
+
+        },
+
+        2000
+      );
+
+    return () =>
+      clearInterval(
+        interval
+      );
+
+  }, [deployments]);
 
   return (
     <>
@@ -51,12 +107,20 @@ function Dashboard() {
       <div className="max-w-5xl mx-auto mt-10">
 
         <DeployForm
-          deployments={deployments}
-          setDeployments={setDeployments}
+          deployments={
+            deployments
+          }
+          setDeployments={
+            setDeployments
+          }
         />
 
         <DeploymentTable
-          deployments={deployments}
+          deployments={
+            deployments
+          }
+           setDeployments={setDeployments}
+
         />
 
       </div>
