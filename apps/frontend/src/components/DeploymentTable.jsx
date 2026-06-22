@@ -20,7 +20,10 @@ function DeploymentTable({
 
       const res =
         await axios.get(
-          `http://localhost:3000/deployment/${projectId}`
+          `http://localhost:3000/deployment/${projectId}`,
+          {
+            withCredentials: true
+          }
         );
 
       setLogs(

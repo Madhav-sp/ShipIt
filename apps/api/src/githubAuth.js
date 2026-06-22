@@ -1,13 +1,14 @@
 const passport = require("passport");
 const GitHubStrategy = require("passport-github2").Strategy;
-const prisma = require("./prisma");
+const { PrismaClient } = require("@prisma/client");
+const crypto = require("crypto");
+const prisma = new PrismaClient();
 
 passport.use(
   new GitHubStrategy(
     {
       clientID: process.env.GITHUB_CLIENT_ID,
-      clientSecret:
-        process.env.GITHUB_CLIENT_SECRET,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
       callbackURL:
         "http://localhost:3000/auth/github/callback",
     },
@@ -34,29 +35,24 @@ passport.use(
               id: crypto.randomUUID(),
               githubId: profile.id,
               username:
-                profile.username,
+                profile.username ||
+                profile.displayName,
               avatarUrl:
-                profile.photos?.[0]
-                  ?.value,
+                profile.photos?.[0]?.value,
             },
           });
 
       }
 
-      return done(
-        null,
-        user
-      );
+      return done(null, user);
+
     }
   )
 );
 
 passport.serializeUser(
   (user, done) => {
-    done(
-      null,
-      user.id
-    );
+    done(null, user.id);
   }
 );
 
@@ -65,15 +61,11 @@ passport.deserializeUser(
 
     const user =
       await prisma.user.findUnique({
-        where: {
-          id,
-        },
+        where: { id },
       });
 
-    done(
-      null,
-      user
-    );
+    done(null, user);
+
   }
 );
 

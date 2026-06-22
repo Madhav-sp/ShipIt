@@ -14,7 +14,10 @@ function Dashboard() {
     const fetchDeployments = async () => {
       try {
         const res = await axios.get(
-          "http://localhost:3000/deployments"
+          "http://localhost:3000/deployments",
+          {
+            withCredentials: true,
+          }
         );
 
         const formatted =

@@ -10,33 +10,44 @@ const redis = require(
 );
 require("dotenv").config();
 
-// const session = require("express-session");
+const session = require("express-session");
 
-// const passport =require("./githubAuth");
+const passport =require("./githubAuth");
 
 const prisma = require("./prisma");
 
+const requireAuth =require("./authMiddleware");
 const { v4: uuidv4 } = require("uuid");
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin:
+      "http://localhost:5173",
+    credentials: true,
+  })
+);
 app.use(express.json());
-// app.use(
-//   session({
-//     secret: "shipit-secret",
-//     resave: false,
-//     saveUninitialized: false,
-//   })
-// );
+app.use(
+  session({
+    secret: "shipit-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+    },
+  })
+);
 
-// app.use(
-//   passport.initialize()
-// );
+app.use(
+  passport.initialize()
+);
 
-// app.use(
-//   passport.session()
-// );
+app.use(
+  passport.session()
+);
 
 app.get("/", (req, res) => {
   res.json({
@@ -44,7 +55,7 @@ app.get("/", (req, res) => {
   });
 });
 
-app.post("/deploy", async (req, res) => {
+app.post("/deploy", requireAuth, async (req, res) => {
   try {
 
     const { repoUrl } = req.body;
@@ -62,7 +73,8 @@ app.post("/deploy", async (req, res) => {
   data: {
     id: projectId,
     repoUrl,
-    status: "QUEUED"
+    status: "QUEUED",
+    userId: req.user.id
   }
 });
 
@@ -121,6 +133,7 @@ return res.json(
 
 app.get(
   "/deployments",
+  requireAuth,
   async (req, res) => {
 
     const deployments =
@@ -140,6 +153,7 @@ app.get(
 
 app.get(
   "/deployment/:id",
+  requireAuth,
   async (req, res) => {
 
     try {
@@ -151,6 +165,7 @@ app.get(
           }
         });
 
+
       if (!deployment) {
         return res
           .status(404)
@@ -159,6 +174,19 @@ app.get(
               "Deployment not found"
           });
       }
+      if (
+      deployment.userId !==
+      req.user.id
+    ) {
+
+      return res
+        .status(403)
+        .json({
+          message:
+            "Forbidden"
+        });
+
+    }
 
       return res.json(
         deployment
@@ -177,52 +205,84 @@ app.get(
   }
 );
 
-// app.get(
-//   "/auth/github",
-//   passport.authenticate(
-//     "github",
-//     { scope: ["user:email"] }
-//   )
-// );
+app.get(
+  "/auth/github",
+  passport.authenticate(
+    "github",
+    { scope: ["user:email"] }
+  )
+);
 
-// app.get(
-//   "/auth/github/callback",
+app.get(
+  "/auth/github/callback",
 
-//   passport.authenticate(
-//     "github",
-//     {
-//       failureRedirect:
-//         "/login",
-//     }
-//   ),
+  passport.authenticate(
+    "github",
+    {
+      failureRedirect:
+        "/login",
+    }
+  ),
 
-//   (req, res) => {
+  (req, res) => {
 
-//     res.redirect(
-//       "http://localhost:5173"
-//     );
+    res.redirect(
+      "http://localhost:5173"
+    );
 
-//   }
-// );
+  }
+);
 
-// app.get(
-//   "/me",
-//   (req, res) => {
+app.get(
+  "/me",
+  requireAuth,
+  (req, res) => {
 
-//     if (!req.user) {
-//       return res
-//         .status(401)
-//         .json({
-//           message:
-//             "Not logged in",
-//         });
-//     }
+    if (!req.user) {
+      return res
+        .status(401)
+        .json({
+          message:
+            "Not logged in",
+        });
+    }
 
-//     res.json(
-//       req.user
-//     );
-//   }
-// );
+    res.json(
+      req.user
+    );
+  }
+);
+
+app.get(
+  "/logout",
+  (req, res) => {
+
+    req.logout((err) => {
+
+      if (err) {
+        return res
+          .status(500)
+          .json({
+            error: err.message
+          });
+      }
+
+      req.session.destroy(() => {
+
+        res.clearCookie(
+          "connect.sid"
+        );
+
+        res.json({
+          success: true
+        });
+
+      });
+
+    });
+
+  }
+);
 
 app.listen(3000, () => {
   console.log(

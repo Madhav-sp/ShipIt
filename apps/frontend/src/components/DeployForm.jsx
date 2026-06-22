@@ -18,6 +18,9 @@ function DeployForm({
           "http://localhost:3000/deploy",
           {
             repoUrl,
+          },
+          {
+            withCredentials: true
           }
         );
 
