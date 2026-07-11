@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { motion } from "framer-motion";
+import Logo from "../components/ui/Logo";
 import {
   Rocket,
   GitBranch,
@@ -48,14 +49,7 @@ export default function LandingPage() {
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center justify-between px-5 md:px-8 bg-background/80 backdrop-blur-md border-b border-border"
       >
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center">
-            <Rocket size={12} className="text-background" />
-          </div>
-          <span className="text-[14px] font-semibold tracking-tight">
-            Deployr
-          </span>
-        </div>
+        <Logo size="sm" showText={true} />
         <div className="flex items-center gap-4">
           <button
             onClick={login}
@@ -472,12 +466,7 @@ export default function LandingPage() {
         {/* ===================== FOOTER ===================== */}
         <footer className="py-8 border-t border-border">
           <div className="max-w-5xl mx-auto px-5 md:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 bg-white rounded flex items-center justify-center">
-                <Rocket size={10} className="text-background" />
-              </div>
-              <span className="text-[12px] text-text-muted">Deployr</span>
-            </div>
+            <Logo size="xs" showText={true} />
             <div className="flex items-center gap-6">
               {["GitHub", "Docs", "Privacy"].map((link) => (
                 <a

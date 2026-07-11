@@ -9,6 +9,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import Logo from "./ui/Logo";
 
 export default function Topbar({ onSearchOpen }) {
   const { user, logout } = useAuth();
@@ -25,7 +26,13 @@ export default function Topbar({ onSearchOpen }) {
           <Menu size={18} />
         </button>
 
-        <nav className="hidden md:flex items-center gap-1.5 text-[13px]">
+        {/* Mobile brand header */}
+        <div className="lg:hidden flex items-center">
+          <Logo size="sm" showText={true} to="/" />
+        </div>
+
+        <nav className="hidden md:flex items-center gap-2 text-[13px]">
+          <Logo size="xs" showText={false} />
           <span className="text-text-muted font-medium">Deployr</span>
           <ChevronRight size={12} className="text-text-muted" />
           <span className="text-text-primary font-medium">Projects</span>

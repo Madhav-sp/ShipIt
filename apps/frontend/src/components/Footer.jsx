@@ -1,17 +1,13 @@
 import React from "react";
+import Logo from "./ui/Logo";
 
 export default function Footer() {
   return (
     <footer className="mt-16 border-t border-border py-8 px-4 md:px-6 lg:px-8 text-text-muted text-[13px] bg-background/50">
       <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         {/* Left: Brand and description */}
-        <div className="space-y-1">
-          <span className="font-semibold text-text-primary text-[14px]">
-            Deployr
-          </span>
-          <p className="text-[12px] text-text-muted max-w-sm leading-relaxed">
-            Modern Deployment Platform
-          </p>
+        <div>
+          <Logo size="sm" showText={true} showSubtext={true} />
         </div>
 
         {/* Center: Links */}

@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
+import Logo from "./ui/Logo";
 
 const navItems = [
   { name: "Projects", path: "/dashboard", icon: LayoutDashboard },
@@ -89,16 +90,7 @@ function SidebarContent({ isCollapsed, isMobile, onClose }) {
             <X size={18} />
           </button>
         )}
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center shrink-0">
-            <Rocket size={14} className="text-background" />
-          </div>
-          {(!isCollapsed || isMobile) && (
-            <span className="text-[15px] font-semibold tracking-tight text-text-primary">
-              Deployr
-            </span>
-          )}
-        </div>
+        <Logo to="/" size="md" showText={!isCollapsed || isMobile} onClick={isMobile ? onClose : undefined} />
       </div>
 
       {/* Navigation */}
