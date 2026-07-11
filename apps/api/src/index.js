@@ -10,8 +10,12 @@ const deploymentQueue = require(
 const redis = require(
   "../../worker/src/redis"
 );
-require("dotenv").config();
 
+const path = require("path");
+
+require("dotenv").config({
+  path: path.resolve(__dirname, "../../.env"),
+});
 const session = require("express-session");
 
 const passport =require("./githubAuth");
