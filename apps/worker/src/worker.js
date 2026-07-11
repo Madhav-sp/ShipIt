@@ -121,9 +121,14 @@ const worker = new Worker(
       );
 
       const copiedPkgPath = path.join(outputPath, "package.json");
-      if (fs.existsSync(copiedPkgPath)) {
-        fs.unlinkSync(copiedPkgPath);
-      }
+
+try {
+  if (fs.existsSync(copiedPkgPath)) {
+    fs.unlinkSync(copiedPkgPath);
+  }
+} catch (err) {
+  console.warn("Skipping package.json deletion:", err.message);
+}
 
       await uploadFolder(
         outputPath,
