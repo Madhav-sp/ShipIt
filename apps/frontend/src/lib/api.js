@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
+// Local: VITE_API_URL=http://localhost:3000
+// Production: falls back to Nginx proxy
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -8,66 +10,75 @@ const api = axios.create({
 });
 
 /**
- * Get the currently authenticated user.
+ * Get current user
  */
 export async function fetchCurrentUser() {
-  const res = await api.get("/me");
-  return res.data;
+  const { data } = await api.get("/me");
+  return data;
 }
 
 /**
- * List all deployments for the current user.
+ * Get all deployments
  */
 export async function fetchDeployments() {
-  const res = await api.get("/deployments");
-  return res.data;
+  const { data } = await api.get("/deployments");
+
+  if (!Array.isArray(data)) {
+    console.error("Expected deployments array, got:", data);
+    return [];
+  }
+
+  return data;
 }
 
 /**
- * Get a single deployment by ID (includes logs).
+ * Get deployment details
  */
 export async function fetchDeployment(id) {
-  const res = await api.get(`/deployment/${id}`);
-  return res.data;
+  const { data } = await api.get(`/deployment/${id}`);
+  return data;
 }
 
 /**
- * Get the status of a deployment.
+ * Get deployment status
  */
 export async function fetchDeploymentStatus(projectId) {
-  const res = await api.get(`/status/${projectId}`);
-  return res.data;
+  const { data } = await api.get(`/status/${projectId}`);
+  return data;
 }
 
 /**
- * Deploy a repository.
+ * Deploy repository
  */
 export async function deployRepo(repoUrl) {
-  const res = await api.post("/deploy", { repoUrl });
-  return res.data;
+  const { data } = await api.post("/deploy", {
+    repoUrl,
+  });
+
+  return data;
 }
 
 /**
- * Logout the current user.
+ * Logout
  */
 export async function logoutUser() {
-  const res = await api.get("/logout");
-  return res.data;
+  const { data } = await api.get("/logout");
+  return data;
 }
 
 /**
- * Redirect to GitHub OAuth.
+ * GitHub OAuth
  */
 export function redirectToGitHubAuth() {
   window.location.href = "/auth/github";
 }
 
 /**
- * Delete a deployment by ID.
+ * Delete deployment
  */
 export async function deleteDeployment(id) {
-  const res = await api.delete(`/deployment/${id}`);
-  return res.data;
+  const { data } = await api.delete(`/deployment/${id}`);
+  return data;
 }
 
 export default api;
