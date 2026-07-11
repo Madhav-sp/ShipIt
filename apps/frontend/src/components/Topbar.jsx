@@ -26,7 +26,7 @@ export default function Topbar({ onSearchOpen }) {
         </button>
 
         <nav className="hidden md:flex items-center gap-1.5 text-[13px]">
-          <span className="text-text-muted font-medium">ShipIt</span>
+          <span className="text-text-muted font-medium">Deployr</span>
           <ChevronRight size={12} className="text-text-muted" />
           <span className="text-text-primary font-medium">Projects</span>
         </nav>

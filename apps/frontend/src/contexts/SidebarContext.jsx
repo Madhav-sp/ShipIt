@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 
 const SidebarContext = createContext();
 
-const STORAGE_KEY = "shipit-sidebar-collapsed";
+const STORAGE_KEY = "deployr-sidebar-collapsed";
 
 export function SidebarProvider({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(() => {

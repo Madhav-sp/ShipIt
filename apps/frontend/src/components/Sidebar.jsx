@@ -95,7 +95,7 @@ function SidebarContent({ isCollapsed, isMobile, onClose }) {
           </div>
           {(!isCollapsed || isMobile) && (
             <span className="text-[15px] font-semibold tracking-tight text-text-primary">
-              ShipIt
+              Deployr
             </span>
           )}
         </div>

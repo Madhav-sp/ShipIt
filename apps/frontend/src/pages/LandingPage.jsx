@@ -53,7 +53,7 @@ export default function LandingPage() {
             <Rocket size={12} className="text-background" />
           </div>
           <span className="text-[14px] font-semibold tracking-tight">
-            ShipIt
+            Deployr
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -157,7 +157,7 @@ export default function LandingPage() {
                 variants={fadeIn}
                 className="text-2xl md:text-4xl font-semibold tracking-tight mb-3"
               >
-                How ShipIt Works
+                How Deployr Works
               </motion.h2>
               <motion.p
                 variants={fadeIn}
@@ -241,13 +241,13 @@ export default function LandingPage() {
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
                 <span className="ml-2 text-[11px] text-text-muted font-mono">
-                  shipit-architecture
+                  deployr-architecture
                 </span>
               </div>
               <div className="p-6 font-mono text-[12px] md:text-[13px] leading-relaxed">
                 <motion.div variants={fadeIn}>
                   <span className="text-text-muted">{"$ "}</span>
-                  <span className="text-emerald-500">shipit</span>
+                  <span className="text-emerald-500">deployr</span>
                   <span className="text-text-secondary"> deploy</span>
                   <span className="text-text-muted"> --repo github.com/user/app</span>
                 </motion.div>
@@ -268,7 +268,7 @@ export default function LandingPage() {
                     <span className="text-text-secondary">→</span> Invalidating CloudFront cache...
                   </p>
                   <p className="text-emerald-500 mt-3">
-                    ✓ Deployed to https://app-a1b2c3.shipit.dev
+                    ✓ Deployed to https://app-a1b2c3.deployr.dev
                   </p>
                   <p className="text-text-muted text-[11px] mt-1">
                     Build time: 34s • Size: 2.3 MB • Region: us-east-1
@@ -476,7 +476,7 @@ export default function LandingPage() {
               <div className="w-5 h-5 bg-white rounded flex items-center justify-center">
                 <Rocket size={10} className="text-background" />
               </div>
-              <span className="text-[12px] text-text-muted">ShipIt</span>
+              <span className="text-[12px] text-text-muted">Deployr</span>
             </div>
             <div className="flex items-center gap-6">
               {["GitHub", "Docs", "Privacy"].map((link) => (
