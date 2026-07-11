@@ -8,7 +8,7 @@ require("dotenv").config({
 const fs = require("fs");
 const { Worker } = require("bullmq");
 const deploy = require("./deploy");
-const path = require("path");
+// const path = require("path");
 const uploadFolder = require("./uploader");
 const prisma = require("./prisma");
 const detectFramework = require("./framework");
