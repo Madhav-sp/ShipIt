@@ -13,12 +13,14 @@ import {
   Link as LinkIcon,
   Loader2,
   Clock,
+  Trash2,
 } from "lucide-react";
-import { fetchDeployments, fetchDeployment, fetchDeploymentStatus, deployRepo } from "../lib/api";
+import { fetchDeployments, fetchDeployment, fetchDeploymentStatus, deployRepo, deleteDeployment } from "../lib/api";
 import { extractRepoName, extractRepoShortName, formatRelativeTime, getStatusColor } from "../lib/utils";
 import { toast } from "sonner";
 import StatusBadge from "../components/ui/StatusBadge";
 import { DetailSkeleton } from "../components/ui/LoadingState";
+import DeleteConfirmModal from "../components/ui/DeleteConfirmModal";
 
 function ProjectDetail() {
   const navigate = useNavigate();
@@ -27,7 +29,10 @@ function ProjectDetail() {
   const [logs, setLogs] = useState("");
   const [isLogsLoading, setIsLogsLoading] = useState(true);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
   const logsRef = useRef(null);
 
   // Fetch project details
@@ -61,6 +66,8 @@ function ProjectDetail() {
 
     fetchLogs();
 
+    if (project?.status === "SUCCESS" || project?.status === "FAILED") return;
+
     const interval = setInterval(async () => {
       try {
         const logData = await fetchDeployment(id);
@@ -81,7 +88,7 @@ function ProjectDetail() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [id]);
+  }, [id, project?.status]);
 
   // Auto-scroll logs
   useEffect(() => {
@@ -104,6 +111,39 @@ function ProjectDetail() {
     } finally {
       setIsDeploying(false);
     }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!project) return;
+    setIsDeleting(true);
+    try {
+      await deleteDeployment(project.id);
+      toast.success("Deployment deleted successfully.");
+      navigate("/dashboard");
+    } catch (err) {
+      const status = err.response?.status;
+      const msg = err.response?.data?.message;
+      if (status === 404) {
+        toast.success("Deployment deleted successfully.");
+        navigate("/dashboard");
+      } else if (status === 403) {
+        toast.error("Forbidden: You do not own this deployment (403)");
+      } else if (status === 500) {
+        toast.error("Server error while deleting deployment (500)");
+      } else {
+        toast.error(msg || "Failed to delete deployment.");
+      }
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleCopyUrl = () => {
+    if (!project.deploymentUrl) return;
+    navigator.clipboard.writeText(project.deploymentUrl);
+    setUrlCopied(true);
+    toast.success("Copied to clipboard.");
+    setTimeout(() => setUrlCopied(false), 2000);
   };
 
   const handleCopyLogs = async () => {
@@ -208,6 +248,18 @@ function ProjectDetail() {
               )}
               {isDeploying ? "Deploying..." : "Redeploy"}
             </button>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              disabled={isDeleting}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface border border-border text-[12px] font-medium text-red-400 hover:bg-red-500/10 hover:border-red-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Trash2 size={13} />
+              )}
+              {isDeleting ? "Deleting..." : "Delete"}
+            </button>
           </div>
         </div>
       </motion.div>
@@ -239,15 +291,28 @@ function ProjectDetail() {
                   Deployment URL
                 </p>
                 {project.deploymentUrl ? (
-                  <a
-                    href={project.deploymentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[13px] text-text-primary hover:underline font-mono"
-                  >
-                    <LinkIcon size={12} className="text-text-muted" />
-                    {project.deploymentUrl.replace(/^https?:\/\//, "")}
-                  </a>
+                  <div className="flex items-center justify-between gap-2 bg-background px-3 py-2 rounded-lg border border-border">
+                    <a
+                      href={project.deploymentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[13px] text-text-primary hover:underline font-mono truncate min-w-0"
+                    >
+                      <LinkIcon size={12} className="text-text-muted shrink-0" />
+                      <span className="truncate">{project.deploymentUrl.replace(/^https?:\/\//, "")}</span>
+                    </a>
+                    <button
+                      onClick={handleCopyUrl}
+                      title="Copy Deployment URL"
+                      className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/[0.06] transition-colors shrink-0 flex items-center justify-center"
+                    >
+                      {urlCopied ? (
+                        <Check size={13} className="text-emerald-500" />
+                      ) : (
+                        <Copy size={13} />
+                      )}
+                    </button>
+                  </div>
                 ) : (
                   <p className="text-[13px] text-text-muted">
                     Not available yet
@@ -388,6 +453,13 @@ function ProjectDetail() {
           </motion.div>
         </div>
       </div>
+
+      <DeleteConfirmModal
+        open={showDeleteModal}
+        onOpenChange={setShowDeleteModal}
+        onConfirm={handleDeleteConfirm}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }

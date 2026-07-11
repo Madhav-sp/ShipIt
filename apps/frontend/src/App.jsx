@@ -19,6 +19,7 @@ function App() {
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<ProjectsDashboard />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
+            <Route path="/project/:id" element={<ProjectDetail />} />
           </Route>
         </Routes>
       </BrowserRouter>

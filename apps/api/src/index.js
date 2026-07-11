@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const deploymentQueue = require(
   "../../worker/src/queue"
@@ -18,28 +20,39 @@ const prisma = require("./prisma");
 
 const requireAuth =require("./authMiddleware");
 const { v4: uuidv4 } = require("uuid");
+const s3 = require("./s3");
+const { ListObjectsV2Command, DeleteObjectsCommand } = require("@aws-sdk/client-s3");
 
 const app = express();
 
+app.use(helmet());
+
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
 app.use(
   cors({
-    origin:
-      "http://localhost:5173",
+    origin: FRONTEND_URL,
     credentials: true,
   })
 );
 app.use(express.json());
 app.use(
   session({
-    secret: "shipit-secret",
+    secret: process.env.SESSION_SECRET || "deployr-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       httpOnly: true,
     },
   })
 );
+
+const deployLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { success: false, message: "Too many deployment requests, please try again later." },
+});
 
 app.use(
   passport.initialize()
@@ -55,15 +68,15 @@ app.get("/", (req, res) => {
   });
 });
 
-app.post("/deploy", requireAuth, async (req, res) => {
+app.post("/deploy", requireAuth, deployLimiter, async (req, res) => {
   try {
 
     const { repoUrl } = req.body;
 
-    if (!repoUrl) {
+    if (!repoUrl || typeof repoUrl !== "string" || !repoUrl.trim().startsWith("https://github.com/")) {
       return res.status(400).json({
         success: false,
-        message: "Repo URL required"
+        message: "Valid GitHub repository URL required (must start with https://github.com/)"
       });
     }
 
@@ -175,18 +188,15 @@ app.get(
           });
       }
       if (
-      deployment.userId !==
-      req.user.id
-    ) {
-
-      return res
-        .status(403)
-        .json({
-          message:
-            "Forbidden"
-        });
-
-    }
+        deployment.userId &&
+        deployment.userId !== req.user.id
+      ) {
+        return res
+          .status(403)
+          .json({
+            message: "Forbidden"
+          });
+      }
 
       return res.json(
         deployment
@@ -227,7 +237,7 @@ app.get(
   (req, res) => {
 
     res.redirect(
-      "http://localhost:5173"
+      FRONTEND_URL
     );
 
   }
@@ -284,8 +294,90 @@ app.get(
   }
 );
 
-app.listen(3000, () => {
+async function deleteS3Folder(projectId) {
+  if (!process.env.S3_BUCKET_NAME) return;
+  try {
+    let isTruncated = true;
+    let continuationToken = undefined;
+
+    while (isTruncated) {
+      const listCommand = new ListObjectsV2Command({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Prefix: `${projectId}/`,
+        ContinuationToken: continuationToken,
+      });
+
+      const listedObjects = await s3.send(listCommand);
+
+      if (!listedObjects.Contents || listedObjects.Contents.length === 0) {
+        break;
+      }
+
+      const deleteCommand = new DeleteObjectsCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Delete: {
+          Objects: listedObjects.Contents.map((obj) => ({ Key: obj.Key })),
+          Quiet: true,
+        },
+      });
+
+      await s3.send(deleteCommand);
+
+      isTruncated = listedObjects.IsTruncated;
+      continuationToken = listedObjects.NextContinuationToken;
+    }
+    console.log(`Successfully deleted S3 folder: ${projectId}/`);
+  } catch (err) {
+    console.error(`Error deleting S3 folder for ${projectId}:`, err.message);
+  }
+}
+
+app.delete(
+  ["/deployment/:projectId", "/deployment/:id"],
+  requireAuth,
+  async (req, res) => {
+    try {
+      const projectId = (req.params.projectId || req.params.id || "").trim();
+      if (!projectId) {
+        return res.status(400).json({ message: "Deployment ID required" });
+      }
+
+      const deployment = await prisma.deployment.findFirst({
+        where: { id: projectId }
+      });
+
+      if (!deployment) {
+        return res.status(404).json({
+          message: "Deployment not found"
+        });
+      }
+
+      if (deployment.userId && deployment.userId !== req.user.id) {
+        return res.status(403).json({
+          message: "Forbidden"
+        });
+      }
+
+      await deleteS3Folder(deployment.id);
+
+      await prisma.deployment.delete({
+        where: { id: deployment.id }
+      });
+
+      return res.json({
+        success: true
+      });
+    } catch (err) {
+      return res.status(500).json({
+        error: err.message
+      });
+    }
+  }
+);
+
+const PORT = Number(process.env.PORT) || 3000;
+app.listen(PORT, () => {
   console.log(
-    "API running on port 3000"
+    `API running on port ${PORT}`
   );
 });

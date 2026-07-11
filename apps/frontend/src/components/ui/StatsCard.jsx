@@ -8,7 +8,7 @@ export default function StatsCard({ label, value, icon: Icon, accent, index = 0 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        "bg-card border border-border rounded-xl p-4 flex flex-col gap-2 hover:border-border-hover transition-colors"
+        "bg-card/80 backdrop-blur-md border border-border/80 rounded-xl p-5 flex flex-col gap-2 shadow-sm hover:border-border-hover hover:bg-card transition-all duration-200"
       )}
     >
       <div className="flex items-center justify-between">

@@ -7,6 +7,8 @@ import Topbar from "../components/Topbar";
 import CommandPalette from "../components/CommandPalette";
 import { cn } from "../lib/utils";
 
+import Footer from "../components/Footer";
+
 function DashboardShell() {
   const { user, isLoading } = useAuth();
   const { isCollapsed } = useSidebar();
@@ -39,8 +41,11 @@ function DashboardShell() {
         <Topbar onSearchOpen={() => setSearchOpen(true)} />
 
         {/* Scrollable content area — this is the ONLY scroll container */}
-        <main className="flex-1 overflow-y-auto">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto flex flex-col justify-between">
+          <div className="flex-1">
+            <Outlet />
+          </div>
+          <Footer />
         </main>
       </div>
 

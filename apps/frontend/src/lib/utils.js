@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isYesterday } from "date-fns";
 
 /**
  * Merge Tailwind classes with clsx and tailwind-merge
@@ -44,12 +44,21 @@ export function extractRepoShortName(url) {
 
 /**
  * Format a date string to relative time.
- * e.g. "2024-01-01T00:00:00Z" → "3 months ago"
+ * e.g. "2 minutes ago", "5 hours ago", "Yesterday"
  */
 export function formatRelativeTime(dateString) {
   if (!dateString) return "Unknown";
   try {
-    return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    const date = new Date(dateString);
+    if (isYesterday(date)) {
+      return "Yesterday";
+    }
+    const distance = formatDistanceToNow(date, { addSuffix: true });
+    return distance
+      .replace(/^about /, "")
+      .replace(/^less than a minute ago$/, "just now")
+      .replace(/^almost /, "")
+      .replace(/^over /, "");
   } catch {
     return "Unknown";
   }

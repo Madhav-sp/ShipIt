@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -60,6 +60,14 @@ export async function logoutUser() {
  */
 export function redirectToGitHubAuth() {
   window.location.href = `${API_BASE}/auth/github`;
+}
+
+/**
+ * Delete a deployment by ID.
+ */
+export async function deleteDeployment(id) {
+  const res = await api.delete(`/deployment/${id}`);
+  return res.data;
 }
 
 export default api;

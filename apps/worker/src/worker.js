@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const fs = require("fs");
 const { Worker } = require("bullmq");
 const deploy = require("./deploy");
 const path = require("path");
@@ -76,16 +77,14 @@ const worker = new Worker(
         projectId
       );
 
-      // CHANGE THIS PATH IF YOUR REPO IS CLONED ELSEWHERE
-      const projectPath = path.join(
+      const outputPath = path.join(
         __dirname,
         "../output",
-        projectId,
-        "source"
+        projectId
       );
 
       const framework =
-        detectFramework(projectPath);
+        detectFramework(outputPath);
 
       console.log(
         "Detected Framework:",
@@ -107,12 +106,6 @@ const worker = new Worker(
         "Build Complete"
       );
 
-      const outputPath = path.join(
-        __dirname,
-        "../output",
-        projectId
-      );
-
       console.log(
         "Uploading To S3..."
       );
@@ -121,6 +114,11 @@ const worker = new Worker(
         projectId,
         "Uploading To S3"
       );
+
+      const copiedPkgPath = path.join(outputPath, "package.json");
+      if (fs.existsSync(copiedPkgPath)) {
+        fs.unlinkSync(copiedPkgPath);
+      }
 
       await uploadFolder(
         outputPath,
@@ -165,6 +163,11 @@ const worker = new Worker(
         "Deployment Saved To DB"
       );
 
+      if (fs.existsSync(outputPath)) {
+        fs.rmSync(outputPath, { recursive: true, force: true });
+        console.log("Cleanup: Removed temporary build folder:", outputPath);
+      }
+
     } catch (err) {
 
       await appendLog(
@@ -186,6 +189,12 @@ const worker = new Worker(
         },
       });
 
+      const failedOutputPath = path.join(__dirname, "../output", projectId);
+      if (fs.existsSync(failedOutputPath)) {
+        fs.rmSync(failedOutputPath, { recursive: true, force: true });
+        console.log("Cleanup: Removed temporary build folder on failure:", failedOutputPath);
+      }
+
       console.error(err);
 
       throw err;
@@ -196,8 +205,8 @@ const worker = new Worker(
 
   {
     connection: {
-      host: "127.0.0.1",
-      port: 6379,
+      host: process.env.REDIS_HOST || "127.0.0.1",
+      port: Number(process.env.REDIS_PORT) || 6379,
     },
   }
 );

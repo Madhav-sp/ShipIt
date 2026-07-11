@@ -102,6 +102,11 @@ async function main() {
       }
     );
 
+    const pkgPath = path.join(projectPath, "package.json");
+    if (fs.existsSync(pkgPath)) {
+      fs.copyFileSync(pkgPath, path.join(targetPath, "package.json"));
+    }
+
     console.log(
       "Build Files Copied Successfully"
     );
