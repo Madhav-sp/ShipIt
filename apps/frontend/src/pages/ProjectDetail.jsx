@@ -1,248 +1,394 @@
-import { useState, useEffect } from "react";
-import { useParams, Navigate, useNavigate } from "react-router-dom";
-import axios from "axios";
-import DashboardLayout from "../layouts/DashboardLayout";
-import { useAuth } from "../contexts/AuthContext";
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft,
+  ExternalLink,
+  GitBranch,
+  RotateCw,
+  Terminal,
+  Copy,
+  Download,
+  Check,
+  Link as LinkIcon,
+  Loader2,
+  Clock,
+} from "lucide-react";
+import { fetchDeployments, fetchDeployment, fetchDeploymentStatus, deployRepo } from "../lib/api";
+import { extractRepoName, extractRepoShortName, formatRelativeTime, getStatusColor } from "../lib/utils";
+import { toast } from "sonner";
+import StatusBadge from "../components/ui/StatusBadge";
+import { DetailSkeleton } from "../components/ui/LoadingState";
 
 function ProjectDetail() {
   const navigate = useNavigate();
-  const { user, isLoading } = useAuth();
   const { id } = useParams();
   const [project, setProject] = useState(null);
   const [logs, setLogs] = useState("");
   const [isLogsLoading, setIsLogsLoading] = useState(true);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const logsRef = useRef(null);
 
   // Fetch project details
   useEffect(() => {
-    if (!user) return;
-    const fetchProject = async () => {
+    const load = async () => {
       try {
-        const res = await axios.get("http://localhost:3000/deployments", {
-          withCredentials: true,
-        });
-        const found = res.data.find(d => d.id === id);
+        const deployments = await fetchDeployments();
+        const found = deployments.find((d) => d.id === id);
         if (found) {
-          setProject({
-            projectId: found.id,
-            repoUrl: found.repoUrl,
-            status: found.status,
-            deploymentUrl: found.deploymentUrl,
-            createdAt: found.createdAt,
-          });
+          setProject(found);
         }
       } catch (err) {
         console.error(err);
       }
     };
-    fetchProject();
+    load();
   }, [id]);
 
-  // Fetch logs
+  // Fetch logs and poll status
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await axios.get(`http://localhost:3000/deployment/${id}`, {
-          withCredentials: true,
-        });
-        setLogs(res.data.logs || "No logs available yet.");
-      } catch (err) {
+        const data = await fetchDeployment(id);
+        setLogs(data.logs || "No logs available yet.");
+      } catch {
         setLogs("Error loading logs.");
       } finally {
         setIsLogsLoading(false);
       }
     };
-    
+
     fetchLogs();
-    
-    // Poll logs and status while building
+
     const interval = setInterval(async () => {
       try {
-        const logRes = await axios.get(`http://localhost:3000/deployment/${id}`, {
-          withCredentials: true,
-        });
-        setLogs(logRes.data.logs || "No logs available yet.");
+        const logData = await fetchDeployment(id);
+        setLogs(logData.logs || "No logs available yet.");
 
-        const statusRes = await axios.get(`http://localhost:3000/status/${id}`);
-        setProject(prev => {
-          if(!prev) return prev;
+        const statusData = await fetchDeploymentStatus(id);
+        setProject((prev) => {
+          if (!prev) return prev;
           return {
             ...prev,
-            status: statusRes.data.status,
-            deploymentUrl: statusRes.data.deploymentUrl,
-          }
+            status: statusData.status,
+            deploymentUrl: statusData.deploymentUrl,
+          };
         });
       } catch (err) {
-        // Only set error if we don't have logs yet, to prevent overriding existing logs on a network blip
-        if (!logs || logs === "Error loading logs." || logs === "No logs available yet.") {
-          setLogs(`Error loading logs: ${err.message}`);
-        }
+        // Don't override existing logs on network blips
       }
     }, 3000);
-    
+
     return () => clearInterval(interval);
-  }, [id, user]);
+  }, [id]);
+
+  // Auto-scroll logs
+  useEffect(() => {
+    if (logsRef.current) {
+      logsRef.current.scrollTop = logsRef.current.scrollHeight;
+    }
+  }, [logs]);
 
   const handleRedeploy = async () => {
     if (!project || !project.repoUrl) return;
     setIsDeploying(true);
     try {
-      const res = await axios.post(
-        "http://localhost:3000/deploy",
-        { repoUrl: project.repoUrl },
-        { withCredentials: true }
-      );
-      // Navigate to the new deployment ID created by the backend
-      navigate(`/projects/${res.data.projectId}`);
+      const res = await deployRepo(project.repoUrl);
+      toast.success("Redeployment started");
+      navigate(`/projects/${res.projectId}`);
     } catch (err) {
-      console.error(err);
+      toast.error("Redeployment failed", {
+        description: err.response?.data?.message || err.message,
+      });
     } finally {
       setIsDeploying(false);
     }
   };
 
-  if (!isLoading && !user) {
-    return <Navigate to="/" />;
-  }
+  const handleCopyLogs = async () => {
+    if (!logs) return;
+    try {
+      await navigator.clipboard.writeText(logs);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
+  const handleDownloadLogs = () => {
+    if (!logs) return;
+    const blob = new Blob([logs], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `build-logs-${id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   if (!project) {
     return (
-      <DashboardLayout>
-        <div className="p-lg flex items-center justify-center h-full">
-          <p className="text-on-surface-variant">Loading project details...</p>
-        </div>
-      </DashboardLayout>
+      <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto">
+        <DetailSkeleton />
+      </div>
     );
   }
 
+  const repoName = extractRepoShortName(project.repoUrl);
+  const repoFullName = extractRepoName(project.repoUrl);
+
   return (
-    <DashboardLayout>
-      <div className="max-w-6xl mx-auto p-lg">
-        {/* Page Header */}
-        <section className="flex items-center justify-between mb-xl">
-          <div className="flex items-center gap-md">
-            <h2 className="font-headline-xl text-headline-xl text-primary tracking-tight">{project.projectId}</h2>
-            <div className="flex items-center gap-xs px-sm py-[2px] bg-secondary-container rounded-full">
-              <span className={`w-2 h-2 rounded-full ${
-                      project.status === "deployed" ? "bg-green-500 status-pulse" :
-                      project.status === "failed" ? "bg-red-500" : "bg-yellow-500 animate-pulse"
-                    }`}></span>
-              <span className="font-label-sm text-label-sm text-on-secondary-container capitalize">{project.status}</span>
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-6">
+      {/* Back button + Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="flex items-center gap-1.5 text-[13px] text-text-muted hover:text-text-primary transition-colors mb-4"
+        >
+          <ArrowLeft size={14} />
+          Back to Projects
+        </button>
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center">
+              <GitBranch size={18} className="text-text-muted" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-xl font-semibold text-text-primary tracking-tight">
+                  {repoName}
+                </h1>
+                <StatusBadge status={project.status} />
+              </div>
+              <p className="text-[12px] text-text-muted mt-0.5">
+                {repoFullName}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-sm">
-            <a href={project.repoUrl} target="_blank" rel="noreferrer" className="px-md py-base flex items-center gap-sm border border-outline-variant text-on-surface hover:bg-surface-container transition-colors rounded-lg">
-              <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>source</span>
-              <span className="font-label-md text-label-md">GitHub</span>
+
+          <div className="flex items-center gap-2">
+            <a
+              href={project.repoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-text-secondary hover:text-text-primary hover:bg-card hover:border-border-hover transition-colors"
+            >
+              <GitBranch size={13} />
+              Repository
             </a>
             {project.deploymentUrl && (
-              <a href={project.deploymentUrl} target="_blank" rel="noreferrer" className="px-md py-base flex items-center gap-sm bg-primary text-background font-bold hover:opacity-90 transition-opacity rounded-lg">
-                <span className="font-label-md text-label-md">Visit</span>
-                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>open_in_new</span>
+              <a
+                href={project.deploymentUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-text-secondary hover:text-text-primary hover:bg-card hover:border-border-hover transition-colors"
+              >
+                <ExternalLink size={13} />
+                Visit
               </a>
             )}
-            <button 
-              onClick={handleRedeploy} 
+            <button
+              onClick={handleRedeploy}
               disabled={isDeploying}
-              className="px-md py-base flex items-center gap-sm bg-surface-container border border-outline hover:bg-surface-container-high transition-colors rounded-lg disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-background text-[12px] font-semibold hover:bg-accent-hover active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>refresh</span>
-              <span className="font-label-md text-label-md">{isDeploying ? 'Deploying...' : 'Redeploy'}</span>
+              {isDeploying ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <RotateCw size={13} />
+              )}
+              {isDeploying ? "Deploying..." : "Redeploy"}
             </button>
           </div>
-        </section>
+        </div>
+      </motion.div>
 
-        {/* Grid Layout */}
-        <div className="grid grid-cols-12 gap-lg">
-          {/* Left Column: Primary Deployment Info & Logs */}
-          <div className="col-span-12 lg:col-span-8 space-y-lg">
-            {/* Production Card */}
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden group">
-              <div className="p-md bottom-border bg-surface-container-low flex justify-between items-center">
-                <span className="font-label-md text-label-md text-on-surface-variant font-semibold tracking-wider uppercase">Current Deployment</span>
-                <span className="font-label-sm text-label-sm text-on-surface-variant">Created: {new Date(project.createdAt).toLocaleString()}</span>
+      {/* Content Grid */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* Left: Deployment Info + Logs */}
+        <div className="col-span-12 lg:col-span-8 space-y-6">
+          {/* Deployment Info Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.05 }}
+            className="bg-card border border-border rounded-xl overflow-hidden"
+          >
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <span className="text-[12px] font-semibold text-text-muted uppercase tracking-wider">
+                Current Deployment
+              </span>
+              <span className="text-[11px] text-text-muted flex items-center gap-1">
+                <Clock size={11} />
+                {formatRelativeTime(project.createdAt)}
+              </span>
+            </div>
+            <div className="p-4 space-y-3">
+              {/* Deployment URL */}
+              <div>
+                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1.5">
+                  Deployment URL
+                </p>
+                {project.deploymentUrl ? (
+                  <a
+                    href={project.deploymentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[13px] text-text-primary hover:underline font-mono"
+                  >
+                    <LinkIcon size={12} className="text-text-muted" />
+                    {project.deploymentUrl.replace(/^https?:\/\//, "")}
+                  </a>
+                ) : (
+                  <p className="text-[13px] text-text-muted">
+                    Not available yet
+                  </p>
+                )}
               </div>
-              <div className="flex flex-col md:flex-row">
-                <div className="md:w-1/2 p-lg border-r border-outline-variant">
-                  <div className="aspect-video bg-surface-container rounded-lg overflow-hidden relative card-border flex items-center justify-center">
-                     <span className="material-symbols-outlined text-outline-variant text-[48px]">imagesmode</span>
-                  </div>
-                </div>
-                <div className="md:w-1/2 p-lg space-y-md flex flex-col justify-center">
-                  <div>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant uppercase mb-xs">Deployment URL</p>
-                    {project.deploymentUrl ? (
-                      <a href={project.deploymentUrl} target="_blank" rel="noreferrer" className="font-body-md text-body-md text-primary hover:underline flex items-center gap-xs">
-                        {project.deploymentUrl.replace(/^https?:\/\//, '')}
-                        <span className="material-symbols-outlined text-[16px]">link</span>
-                      </a>
-                    ) : (
-                      <p className="font-body-md text-body-md text-on-surface-variant">Not available</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant uppercase mb-xs">Repository</p>
-                    <div className="flex items-center gap-sm">
-                      <span className="material-symbols-outlined text-on-surface-variant">account_tree</span>
-                      <code className="font-body-sm text-body-sm bg-surface-container-high px-sm py-1 rounded text-primary truncate max-w-[200px]">
-                        {project.repoUrl}
-                      </code>
-                    </div>
-                  </div>
+
+              {/* Repository */}
+              <div>
+                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1.5">
+                  Source
+                </p>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-background border border-border">
+                  <GitBranch size={12} className="text-text-muted" />
+                  <code className="text-[12px] text-text-secondary font-mono">
+                    {repoFullName}
+                  </code>
                 </div>
               </div>
             </div>
+          </motion.div>
 
-            {/* Logs Section */}
-            <div className="bg-[#09090B] border border-outline-variant rounded-xl overflow-hidden flex flex-col h-[500px]">
-              <div className="p-md border-b border-outline-variant bg-surface-container-low flex items-center justify-between">
-                <div className="flex items-center gap-sm">
-                  <span className="material-symbols-outlined text-on-surface-variant text-[18px]">terminal</span>
-                  <span className="font-label-md text-label-md text-primary font-semibold tracking-wider uppercase">Build Logs</span>
-                </div>
-                {isLogsLoading && <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>}
+          {/* Build Logs */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.1 }}
+            className="bg-[#09090B] border border-border rounded-xl overflow-hidden flex flex-col"
+            style={{ height: "480px" }}
+          >
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0 bg-surface">
+              <div className="flex items-center gap-2">
+                <Terminal size={14} className="text-text-muted" />
+                <span className="text-[12px] font-semibold text-text-primary uppercase tracking-wider">
+                  Build Logs
+                </span>
+                {isLogsLoading && (
+                  <Loader2
+                    size={12}
+                    className="animate-spin text-text-muted"
+                  />
+                )}
               </div>
-              <div className="flex-1 p-md overflow-y-auto custom-scrollbar bg-black">
-                <pre className="font-mono text-body-sm text-[#A1A1AA] whitespace-pre-wrap">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleCopyLogs}
+                  className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-white/[0.04] transition-colors"
+                  title="Copy logs"
+                >
+                  {copied ? (
+                    <Check size={13} className="text-emerald-500" />
+                  ) : (
+                    <Copy size={13} />
+                  )}
+                </button>
+                <button
+                  onClick={handleDownloadLogs}
+                  className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-white/[0.04] transition-colors"
+                  title="Download logs"
+                >
+                  <Download size={13} />
+                </button>
+              </div>
+            </div>
+            <div ref={logsRef} className="flex-1 overflow-y-auto p-4">
+              {isLogsLoading && !logs ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2
+                      size={20}
+                      className="animate-spin text-text-muted"
+                    />
+                    <p className="text-[12px] text-text-muted">
+                      Loading build logs...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <pre className="terminal-text text-text-secondary whitespace-pre-wrap break-words">
                   {logs}
                 </pre>
-              </div>
+              )}
             </div>
-          </div>
+          </motion.div>
+        </div>
 
-          {/* Right Column: Activity / Recent Deployments */}
-          <div className="col-span-12 lg:col-span-4 space-y-lg">
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg">
-              <div className="flex items-center justify-between mb-lg">
-                <h3 className="font-label-md text-label-md text-primary font-bold uppercase tracking-wider">Deployment Status</h3>
+        {/* Right: Status & Info */}
+        <div className="col-span-12 lg:col-span-4 space-y-6">
+          {/* Status Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.15 }}
+            className="bg-card border border-border rounded-xl p-4"
+          >
+            <h3 className="text-[12px] font-semibold text-text-muted uppercase tracking-wider mb-4">
+              Deployment Status
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-text-secondary">Status</span>
+                <StatusBadge status={project.status} size="sm" />
               </div>
-              <div className="space-y-sm">
-                <div className="group p-md rounded-lg hover:bg-surface-container-low transition-colors card-border bg-background">
-                  <div className="flex items-center justify-between mb-sm">
-                    <div className="flex items-center gap-sm">
-                      <div className={`w-2 h-2 rounded-full ${
-                        project.status === "deployed" ? "bg-green-500" :
-                        project.status === "failed" ? "bg-red-500" : "bg-yellow-500"
-                      }`}></div>
-                      <span className={`font-body-sm text-body-sm font-semibold ${
-                        project.status === "deployed" ? "text-green-500" :
-                        project.status === "failed" ? "text-red-500" : "text-yellow-500"
-                      }`}>{project.status.toUpperCase()}</span>
-                    </div>
-                  </div>
-                  <p className="text-[12px] text-on-surface-variant line-clamp-1 mb-md italic">Latest update</p>
-                </div>
+              <div className="h-px bg-border" />
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-text-secondary">
+                  Created
+                </span>
+                <span className="text-[12px] text-text-muted">
+                  {new Date(project.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="h-px bg-border" />
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-text-secondary">
+                  Framework
+                </span>
+                <span className="text-[12px] text-text-muted">
+                  {project.framework || "Auto-detect"}
+                </span>
               </div>
             </div>
-            
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg">
-               <h3 className="font-label-md text-label-md text-primary font-bold uppercase tracking-wider mb-lg">Usage</h3>
-               <p className="text-on-surface-variant font-body-sm">Metrics will appear here once the project receives traffic.</p>
-            </div>
-          </div>
+          </motion.div>
+
+          {/* Usage Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.2 }}
+            className="bg-card border border-border rounded-xl p-4"
+          >
+            <h3 className="text-[12px] font-semibold text-text-muted uppercase tracking-wider mb-3">
+              Usage
+            </h3>
+            <p className="text-[13px] text-text-muted">
+              Metrics will appear once the project receives traffic.
+            </p>
+          </motion.div>
         </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
 

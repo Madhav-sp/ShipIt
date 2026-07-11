@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import axios from "axios";
+import { fetchCurrentUser, redirectToGitHubAuth, logoutUser } from "../lib/api";
 
 const AuthContext = createContext();
 
@@ -8,30 +8,26 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const getUser = async () => {
       try {
-        const res = await axios.get("http://localhost:3000/me", {
-          withCredentials: true,
-        });
-        setUser(res.data);
-      } catch (err) {
+        const data = await fetchCurrentUser();
+        setUser(data);
+      } catch {
         setUser(null);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchUser();
+    getUser();
   }, []);
 
   const login = () => {
-    window.location.href = "http://localhost:3000/auth/github";
+    redirectToGitHubAuth();
   };
 
   const logout = async () => {
     try {
-      await axios.get("http://localhost:3000/logout", {
-        withCredentials: true,
-      });
+      await logoutUser();
       setUser(null);
       window.location.href = "/";
     } catch (err) {

@@ -5,11 +5,10 @@ const deploy = require("./deploy");
 const path = require("path");
 const uploadFolder = require("./uploader");
 const prisma = require("./prisma");
+const detectFramework = require("./framework");
 
-async function appendLog(
-  projectId,
-  message
-) {
+async function appendLog(projectId, message) {
+
   const deployment =
     await prisma.deployment.findUnique({
       where: {
@@ -28,6 +27,7 @@ async function appendLog(
         "\n",
     },
   });
+
 }
 
 console.log(
@@ -39,12 +39,14 @@ const worker = new Worker(
   "deployment-queue",
 
   async (job) => {
+
     const {
       repoUrl,
       projectId,
     } = job.data;
 
     try {
+
       console.log(
         "Starting Build:",
         projectId
@@ -72,6 +74,27 @@ const worker = new Worker(
       await deploy(
         repoUrl,
         projectId
+      );
+
+      // CHANGE THIS PATH IF YOUR REPO IS CLONED ELSEWHERE
+      const projectPath = path.join(
+        __dirname,
+        "../output",
+        projectId,
+        "source"
+      );
+
+      const framework =
+        detectFramework(projectPath);
+
+      console.log(
+        "Detected Framework:",
+        framework
+      );
+
+      await appendLog(
+        projectId,
+        `Framework: ${framework}`
       );
 
       console.log(
@@ -134,6 +157,7 @@ const worker = new Worker(
         data: {
           status: "SUCCESS",
           deploymentUrl,
+          framework,
         },
       });
 
@@ -165,7 +189,9 @@ const worker = new Worker(
       console.error(err);
 
       throw err;
+
     }
+
   },
 
   {

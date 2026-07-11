@@ -1,64 +1,114 @@
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useState } from "react";
+import { useSidebar } from "../contexts/SidebarContext";
+import { cn } from "../lib/utils";
+import {
+  Search,
+  Bell,
+  Menu,
+  ChevronRight,
+} from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
-export default function Topbar() {
+export default function Topbar({ onSearchOpen }) {
   const { user, logout } = useAuth();
-  const [showDropdown, setShowDropdown] = useState(false);
+  const { toggleMobile } = useSidebar();
 
   return (
-    <header className="h-16 sticky top-0 bg-background/80 backdrop-blur-md z-40 border-b border-outline-variant flex items-center justify-between px-lg w-full">
-      <div className="flex items-center gap-md lg:hidden">
-         {/* Hamburger menu placeholder for mobile */}
-         <button className="material-symbols-outlined text-on-surface-variant hover:text-primary">menu</button>
-      </div>
+    <header className="h-16 shrink-0 border-b border-border flex items-center justify-between px-4 md:px-6 bg-background/80 backdrop-blur-md sticky top-0 z-30">
+      {/* Left: Hamburger (mobile) + Breadcrumb */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={toggleMobile}
+          className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-white/[0.04] transition-colors lg:hidden"
+        >
+          <Menu size={18} />
+        </button>
 
-      <div className="hidden lg:flex items-center gap-md">
-        <nav className="flex items-center gap-sm text-on-surface-variant font-label-md text-label-md">
-          <span>ShipIt</span>
-          <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-          <span className="text-primary font-bold">Projects</span>
+        <nav className="hidden md:flex items-center gap-1.5 text-[13px]">
+          <span className="text-text-muted font-medium">ShipIt</span>
+          <ChevronRight size={12} className="text-text-muted" />
+          <span className="text-text-primary font-medium">Projects</span>
         </nav>
       </div>
 
-      <div className="flex-1 max-w-md mx-xl hidden md:block">
-        <div className="relative group">
-          <span className="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-          <input
-            className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-xs pl-xl pr-sm text-body-sm focus:outline-none focus:border-outline transition-colors text-on-surface"
-            placeholder="Search projects or deployments..."
-            type="text"
-          />
-          <div className="absolute right-sm top-1/2 -translate-y-1/2 text-[10px] text-on-surface-variant border border-outline-variant px-xs rounded">⌘ K</div>
-        </div>
-      </div>
+      {/* Center: Search trigger */}
+      <button
+        onClick={onSearchOpen}
+        className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-card hover:border-border-hover transition-colors text-text-muted text-[13px] w-[280px] lg:w-[320px]"
+      >
+        <Search size={14} />
+        <span className="flex-1 text-left">Search projects...</span>
+        <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-background border border-border text-[10px] text-text-muted font-mono">
+          ⌘K
+        </kbd>
+      </button>
 
-      <div className="flex items-center gap-md relative">
-        <button className="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors">notifications</button>
+      {/* Right: Notifications + User */}
+      <div className="flex items-center gap-2">
+        {/* Mobile search */}
+        <button
+          onClick={onSearchOpen}
+          className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-white/[0.04] transition-colors md:hidden"
+        >
+          <Search size={18} />
+        </button>
+
+        <button className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-white/[0.04] transition-colors relative">
+          <Bell size={18} />
+        </button>
+
+        {/* User dropdown */}
         {user ? (
-          <div className="relative">
-            <button 
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="w-8 h-8 rounded-full bg-surface-container overflow-hidden border border-outline-variant focus:outline-none focus:border-primary"
-            >
-              {user.photos && user.photos[0] ? (
-                 <img className="w-full h-full object-cover" alt="Avatar" src={user.photos[0].value} />
-              ) : (
-                 <span className="material-symbols-outlined text-on-surface-variant text-[20px] mt-1">person</span>
-              )}
-            </button>
-            {showDropdown && (
-              <div className="absolute right-0 mt-2 w-48 bg-surface-container-low border border-outline-variant rounded-lg shadow-xl overflow-hidden py-xs">
-                <div className="px-md py-sm border-b border-outline-variant">
-                  <p className="font-label-sm text-label-sm text-on-surface-variant truncate">{user.username || user.displayName || 'User'}</p>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <button className="w-8 h-8 rounded-full overflow-hidden border border-border hover:border-border-hover transition-colors focus:outline-none">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.username}
+                    className="w-full h-full object-cover"
+                  />
+                ) : user.photos && user.photos[0] ? (
+                  <img
+                    src={user.photos[0].value}
+                    alt={user.username}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-card flex items-center justify-center text-text-muted text-xs font-semibold">
+                    {(user.username || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </button>
+            </DropdownMenu.Trigger>
+
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                align="end"
+                sideOffset={8}
+                className="z-[100] w-56 rounded-lg bg-surface border border-border shadow-xl py-1 animate-in fade-in-0 zoom-in-95"
+              >
+                <div className="px-3 py-2 border-b border-border">
+                  <p className="text-[13px] font-medium text-text-primary truncate">
+                    {user.username || user.displayName || "User"}
+                  </p>
+                  <p className="text-[11px] text-text-muted truncate">
+                    Free Plan
+                  </p>
                 </div>
-                <button onClick={logout} className="w-full text-left px-md py-sm font-label-md text-label-md text-red-400 hover:bg-surface-container-highest transition-colors">
+
+                <DropdownMenu.Item
+                  onSelect={logout}
+                  className="mx-1 mt-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] text-red-400 hover:bg-red-400/10 cursor-pointer outline-none transition-colors"
+                >
                   Log Out
-                </button>
-              </div>
-            )}
-          </div>
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         ) : (
-          <div className="w-8 h-8 rounded-full bg-surface-container overflow-hidden border border-outline-variant animate-pulse"></div>
+          <div className="w-8 h-8 rounded-full bg-card border border-border animate-pulse" />
         )}
       </div>
     </header>

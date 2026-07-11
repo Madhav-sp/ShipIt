@@ -21,6 +21,7 @@ model Deployment {
   status        String
   deploymentUrl String?
   logs          String?
+  framework     String?
   createdAt     DateTime @default(now())
 
   userId String?
