@@ -14,17 +14,17 @@ async function deploy(repoUrl, projectId) {
     const gid = execSync("id -g").toString().trim();
 
     const command = `
-      docker run --rm \
-      --user ${uid}:${gid} \
-      -v "${outputPath}:/output" \
-      -e REPO_URL=${repoUrl} \
-      -e PROJECT_ID=${projectId} \
-      builder-image
-    `;
+docker run --rm \
+-v "${outputPath}:/output" \
+-e REPO_URL=${repoUrl} \
+-e PROJECT_ID=${projectId} \
+builder-image
+`;
 
     execSync(command, {
       stdio: "inherit",
     });
+    execSync(`sudo chown -R ubuntu:ubuntu "${outputPath}"`);
 
     console.log("Deployment Complete");
 
