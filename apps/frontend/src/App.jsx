@@ -1,23 +1,21 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
 
-import Dashboard from "./pages/Dashboard";
-import Deployment from "./pages/Deployment";
+import LandingPage from "./pages/LandingPage";
+import ProjectsDashboard from "./pages/ProjectsDashboard";
+import ProjectDetail from "./pages/ProjectDetail";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={<Dashboard />}
-        />
-
-        <Route
-          path="/deployments"
-          element={<Deployment />}
-        />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/dashboard" element={<ProjectsDashboard />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
